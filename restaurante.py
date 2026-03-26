@@ -1,6 +1,6 @@
-# Sistema de Gestão de Estoque e Pedidos - Restaurante
+import json
 
-# ── Dados do sistema ──────────────────────────────────────────────────────────
+ARQUIVO_DADOS = "restaurante_dados.json"
 
 estoque = [
     {"nome": "Arroz",        "quantidade": 50, "unidade": "kg",  "preco": 5.00},
@@ -12,11 +12,45 @@ estoque = [
     {"nome": "Água",         "quantidade": 60, "unidade": "un",  "preco": 2.50},
 ]
 
-pedidos = []          # lista de pedidos registrados
-proximo_id = 1        # contador de IDs dos pedidos
+pedidos = []
+proximo_id = 1
 
 
-# ── Funções auxiliares ────────────────────────────────────────────────────────
+def carregar_dados():
+    global estoque, pedidos, proximo_id
+    try:
+        with open(ARQUIVO_DADOS, "r", encoding="utf-8") as arquivo:
+            dados = json.load(arquivo)
+
+        estoque_carregado = dados.get("estoque", estoque)
+        pedidos_carregados = dados.get("pedidos", [])
+        proximo_id_carregado = dados.get("proximo_id", 1)
+
+        if isinstance(estoque_carregado, list) and isinstance(pedidos_carregados, list) and isinstance(proximo_id_carregado, int):
+            estoque = estoque_carregado
+            pedidos = pedidos_carregados
+            proximo_id = proximo_id_carregado
+            print("  Dados carregados do arquivo JSON.")
+    except FileNotFoundError:
+        salvar_dados()
+    except (json.JSONDecodeError, OSError, TypeError):
+        print("  Aviso: não foi possível carregar o arquivo JSON. Usando dados padrão.")
+
+
+def salvar_dados():
+    dados = {
+        "estoque": estoque,
+        "pedidos": pedidos,
+        "proximo_id": proximo_id,
+    }
+    try:
+        with open(ARQUIVO_DADOS, "w", encoding="utf-8") as arquivo:
+            json.dump(dados, arquivo, ensure_ascii=False, indent=2)
+    except OSError:
+        print("  Aviso: erro ao salvar dados no arquivo JSON.")
+
+
+
 
 def separador():
     print("-" * 50)
@@ -30,7 +64,7 @@ def pausar():
     input("\nPressione ENTER para continuar...")
 
 
-# ── Estoque ───────────────────────────────────────────────────────────────────
+
 
 def listar_estoque():
     cabecalho("ESTOQUE ATUAL")
@@ -52,7 +86,7 @@ def adicionar_item_estoque():
         pausar()
         return
 
-    # Verifica se já existe
+
     for item in estoque:
         if item["nome"].lower() == nome.lower():
             print(f"  '{nome}' já existe no estoque. Use 'Atualizar quantidade'.")
@@ -69,6 +103,7 @@ def adicionar_item_estoque():
         return
 
     estoque.append({"nome": nome, "quantidade": quantidade, "unidade": unidade, "preco": preco})
+    salvar_dados()
     print(f"  '{nome}' adicionado com sucesso!")
     pausar()
 
@@ -88,6 +123,7 @@ def atualizar_estoque():
         return
 
     estoque[idx]["quantidade"] = qtd
+    salvar_dados()
     print(f"  Quantidade de '{estoque[idx]['nome']}' atualizada para {qtd} {estoque[idx]['unidade']}.")
     pausar()
 
@@ -108,13 +144,13 @@ def remover_item_estoque():
     confirmacao = input(f"  Remover '{estoque[idx]['nome']}'? (s/n): ").lower()
     if confirmacao == "s":
         removido = estoque.pop(idx)
+        salvar_dados()
         print(f"  '{removido['nome']}' removido do estoque.")
     else:
         print("  Operação cancelada.")
     pausar()
 
 def listar_estoque_breve():
-    """Exibe lista de estoque sem pausar (usada internamente)."""
     separador()
     print(f"  {'#':<4} {'Nome':<20} {'Qtd':<8} {'Un.'}")
     separador()
@@ -123,7 +159,7 @@ def listar_estoque_breve():
     separador()
 
 
-# ── Pedidos ───────────────────────────────────────────────────────────────────
+
 
 def novo_pedido():
     global proximo_id
@@ -146,7 +182,7 @@ def novo_pedido():
             print("  Valor inválido.")
             continue
 
-        if idx == -1:   # usuário digitou 0
+        if idx == -1:
             break
 
         if idx < 0 or idx >= len(estoque):
@@ -167,10 +203,10 @@ def novo_pedido():
             print(f"  Estoque insuficiente! Disponível: {estoque[idx]['quantidade']} {estoque[idx]['unidade']}.")
             continue
 
-        # Desconta do estoque
+
         estoque[idx]["quantidade"] -= qtd
 
-        # Adiciona ao pedido (ou soma se o item já estava)
+
         adicionado = False
         for ip in itens_pedido:
             if ip["nome"] == estoque[idx]["nome"]:
@@ -204,6 +240,7 @@ def novo_pedido():
     }
     pedidos.append(pedido)
     proximo_id += 1
+    salvar_dados()
 
     print(f"\n  Pedido #{pedido['id']} (Mesa {mesa}) criado! Total: R$ {total:.2f}")
     pausar()
@@ -288,6 +325,7 @@ def atualizar_status_pedido():
         return
 
     pedido["status"] = status_opcoes[opcao]
+    salvar_dados()
     print(f"  Pedido #{pid} atualizado para '{pedido['status']}'.")
     pausar()
 
@@ -302,12 +340,12 @@ def listar_pedidos_breve():
     separador()
 
 
-# ── Relatório ─────────────────────────────────────────────────────────────────
+
 
 def relatorio():
     cabecalho("RELATÓRIO GERAL")
 
-    # Resumo de pedidos
+
     total_pedidos   = len(pedidos)
     pedidos_abertos = sum(1 for p in pedidos if p["status"] == "Aberto")
     pedidos_entregues = sum(1 for p in pedidos if p["status"] == "Entregue")
@@ -318,7 +356,7 @@ def relatorio():
     print(f"  Pedidos entregues            : {pedidos_entregues}")
     print(f"  Receita (entregues)          : R$ {receita_total:.2f}")
 
-    # Itens com estoque baixo
+
     separador()
     baixo = [item for item in estoque if item["quantidade"] < 5]
     if baixo:
@@ -331,7 +369,7 @@ def relatorio():
     pausar()
 
 
-# ── Menus ─────────────────────────────────────────────────────────────────────
+
 
 def menu_estoque():
     while True:
@@ -407,7 +445,6 @@ def menu_principal():
             pausar()
 
 
-# ── Ponto de entrada ──────────────────────────────────────────────────────────
-
 if __name__ == "__main__":
+    carregar_dados()
     menu_principal()
